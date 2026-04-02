@@ -71,7 +71,7 @@ export async function callGeminiStream(
   const ai = new GoogleGenAI({ apiKey: getApiKey() });
 
   const response = await ai.models.generateContentStream({
-    model: "gemini-2.5-flash",
+    model: "gemini-2.0-flash",
     contents: prompt,
     config: {
       temperature: options.temperature ?? 0.7,
