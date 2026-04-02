@@ -250,4 +250,5 @@ export interface Project {
   growth_report?: GrowthReport;
   authority_score_history?: AuthorityScoreSnapshot[];
   existing_articles?: Array<{ url: string; title: string }>;
+  business_description?: string;
 }

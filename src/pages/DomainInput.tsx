@@ -14,7 +14,9 @@ export default function DomainInputPage({ projectHook, onComplete }: any) {
     // We create a project upon saving Domain Input
     createProject({
       domain: form.domain,
-      site_type: form.siteType,
+      site_type: form.siteType as any,
+      geo_targets: [form.geo],
+      business_description: form.business,
     });
     if (onComplete) onComplete();
   };

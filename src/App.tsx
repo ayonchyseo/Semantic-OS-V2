@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useProject } from "./hooks/useProject";
+import ApiKeyStatus from "./components/ApiKeyStatus";
 
 import DomainInputPage from "./pages/DomainInput";
 import SourceContextPage from "./pages/SourceContext";
@@ -93,6 +94,7 @@ export default function App() {
       </div>
       {/* Main Content */}
       <div style={{ flex: 1, overflowY: "auto", padding: "32px" }}>
+        <ApiKeyStatus />
         {renderPage()}
       </div>
     </div>
