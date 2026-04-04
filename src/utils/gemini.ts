@@ -3,8 +3,8 @@ import { GoogleGenAI } from "@google/genai";
 // Gets API key - works in AI Studio AND Vercel
 function getApiKey(): string {
   const key =
-    (typeof process !== 'undefined' && process.env?.GEMINI_API_KEY) ||
     (import.meta.env?.VITE_GEMINI_API_KEY) ||
+    (typeof process !== 'undefined' && process.env?.GEMINI_API_KEY) ||
     "";
 
   if (!key) {
@@ -33,12 +33,68 @@ YOUR CORE LAWS:
 
 CRITICAL: Always return valid JSON only. No preamble. No explanation. No markdown fences.`;
 
+/**
+ * Robustly extracts a JSON object or array from a string.
+ * Handles: clean JSON, ```json ... ``` fences, ``` ... ``` fences,
+ * and JSON embedded inside conversational text.
+ */
+function extractJSON(text: string): any {
+  if (!text || text.trim() === "") {
+    throw new Error("Model returned an empty response.");
+  }
+
+  // 1. Try direct parse first (cleanest path)
+  try {
+    return JSON.parse(text.trim());
+  } catch (_) {}
+
+  // 2. Try extracting from ```json ... ``` fences
+  const fencedJson = text.match(/```json\s*([\s\S]*?)\s*```/);
+  if (fencedJson) {
+    try {
+      return JSON.parse(fencedJson[1].trim());
+    } catch (_) {}
+  }
+
+  // 3. Try extracting from ``` ... ``` fences (no language tag)
+  const fenced = text.match(/```\s*([\s\S]*?)\s*```/);
+  if (fenced) {
+    try {
+      return JSON.parse(fenced[1].trim());
+    } catch (_) {}
+  }
+
+  // 4. Try extracting the largest { } or [ ] block in the text
+  const objMatch = text.match(/\{[\s\S]*\}/);
+  const arrMatch = text.match(/\[[\s\S]*\]/);
+
+  if (objMatch) {
+    try {
+      return JSON.parse(objMatch[0]);
+    } catch (_) {}
+  }
+
+  if (arrMatch) {
+    try {
+      return JSON.parse(arrMatch[0]);
+    } catch (_) {}
+  }
+
+  // 5. All strategies failed — throw with the raw text for debugging
+  console.error("[SemanticOS] Could not extract JSON from model response:", text.slice(0, 500));
+  throw new Error(`Model response was not valid JSON. Raw preview: "${text.slice(0, 200)}"`);
+}
+
 export interface GeminiOptions {
   useGrounding?: boolean;
   temperature?: number;
   maxTokens?: number;
   model?: string;
 }
+
+// Use gemini-2.0-flash as the stable default.
+// gemini-2.5-flash is experimental and has inconsistent JSON output.
+const DEFAULT_MODEL = "gemini-2.0-flash";
 
 export async function callGemini(prompt: string, options: GeminiOptions = {}): Promise<any> {
   const ai = new GoogleGenAI({ apiKey: getApiKey() });
@@ -53,44 +109,20 @@ export async function callGemini(prompt: string, options: GeminiOptions = {}): P
   if (options.useGrounding) {
     config.tools = [{ googleSearch: {} }];
   } else {
+    // Force JSON output mode — supported reliably on gemini-2.0-flash+
     config.responseMimeType = "application/json";
   }
 
-  try {
-    const response = await ai.models.generateContent({
-      model: options.model ?? "gemini-2.5-flash",
-      contents: prompt,
-      config,
-    });
+  const model = options.model ?? DEFAULT_MODEL;
 
-    const text = response.text ?? "";
+  const response = await ai.models.generateContent({
+    model,
+    contents: prompt,
+    config,
+  });
 
-    if (options.useGrounding) {
-      // Extract JSON from grounded response
-      const jsonMatch = text.match(/```json\n?([\s\S]*?)\n?```/) ||
-                        text.match(/(\{[\s\S]*\}|\[[\s\S]*\])/);
-      if (jsonMatch) {
-        return JSON.parse(jsonMatch[1] || jsonMatch[0]);
-      }
-      return { raw: text, error: "Could not parse JSON from grounded response" };
-    }
-
-    // With responseMimeType: "application/json", text is clean JSON
-    return JSON.parse(text);
-
-  } catch (error: any) {
-    // Re-throw with helpful message
-    if (error.message?.includes("API_KEY") || error.message?.includes("401") || error.message?.includes("403")) {
-      throw new Error(
-        "API Key Error: Your Gemini API key is missing or invalid on Vercel. " +
-        "Go to Vercel → Settings → Environment Variables → add VITE_GEMINI_API_KEY → Redeploy."
-      );
-    }
-    if (error.message?.includes("JSON")) {
-      throw new Error("AI returned invalid JSON. Please retry — this is a temporary model issue.");
-    }
-    throw error;
-  }
+  const text = response.text ?? "";
+  return extractJSON(text);
 }
 
 // For streaming responses (content writing mode)
@@ -102,7 +134,7 @@ export async function callGeminiStream(
   const ai = new GoogleGenAI({ apiKey: getApiKey() });
 
   const stream = await ai.models.generateContentStream({
-    model: "gemini-2.5-flash",
+    model: DEFAULT_MODEL,
     contents: prompt,
     config: {
       temperature: options.temperature ?? 0.7,
@@ -120,7 +152,7 @@ export async function testApiKey(): Promise<{ valid: boolean; error?: string }> 
   try {
     const ai = new GoogleGenAI({ apiKey: getApiKey() });
     await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: DEFAULT_MODEL,
       contents: "Reply with the word OK only.",
       config: { maxOutputTokens: 10 },
     });
