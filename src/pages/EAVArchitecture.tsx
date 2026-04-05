@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { COLORS, style } from "../utils/theme";
-import { callGemini } from "../utils/gemini";
+import { callAI } from "../utils/apiProvider";
 import { PROMPTS } from "../utils/prompts";
 
 export default function EAVArchitecturePage({ projectHook, onComplete }: any) {
@@ -16,15 +16,18 @@ export default function EAVArchitecturePage({ projectHook, onComplete }: any) {
     setLoading(true);
     setError("");
     try {
-      const result = await callGemini(
+      const result = await callAI(
         PROMPTS.eavArchitecture(
           activeProject.source_context_data.central_entity,
           activeProject.source_context_data.source_context,
           activeProject.source_context_data.central_search_intent,
           activeProject.monetization_type
-        )
+        ),
+        { maxTokens: 16000 }
       );
-      updateProject(activeProject.project_id, { eav_architecture: result.eav_architecture });
+      // Handle both {eav_architecture: [...]} and direct array responses
+      const eavData = Array.isArray(result) ? result : (result.eav_architecture ?? result);
+      updateProject(activeProject.project_id, { eav_architecture: eavData });
     } catch (e: any) {
       setError(e.message);
     } finally {
