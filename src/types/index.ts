@@ -277,4 +277,10 @@ export interface Project {
   authority_score_history?: AuthorityScoreSnapshot[];
   existing_articles?: Array<{ url: string; title: string }>;
   business_description?: string;
+  // Module 12
+  multilingual_maps?: any[];
+  // Module 14
+  programmatic_blueprints?: any[];
+  // Module 15
+  sitemap_data?: { sitemap_entries: any[]; xml_output: string };
 }
