@@ -445,6 +445,168 @@ Return ONLY this JSON:
   }]
 }`,
 
+  // ───────────────────────────────────────────────
+  // ENHANCED TOPICAL MAP — SearchAtlas-style 3-level
+  // ───────────────────────────────────────────────
+
+  /**
+   * Phase 1: Generate PILLAR pages (6-10 cornerstone content hubs).
+   * These are the "hub" pages in the Pillar → Cluster → Supporting hierarchy.
+   */
+  pillarPages: (centralEntity: string, sourceContext: string, intent: string, eavJson: string, monetization: string) => `
+Build PILLAR PAGES for a SearchAtlas-style topical authority map using Koray Tugberk's framework.
+Central Entity: ${centralEntity}
+Source Context: ${sourceContext}
+Central Search Intent: ${intent}
+Monetization: ${monetization}
+EAV Architecture: ${eavJson}
+
+PILLAR PAGE RULES:
+- Generate 6-10 pillar pages (cornerstone content hubs)
+- Each pillar = a major attribute cluster of the Central Entity
+- Word count: 3000-5000 (comprehensive guides)
+- Pillar pages are ALWAYS Quality or Trust node type
+- Funnel stage: mostly ToFU and MoFU
+- content_level: "Pillar"
+- Each pillar page represents a distinct topical cluster
+
+Return ONLY a JSON array:
+[{
+  "node_id": "generate-unique-uuid",
+  "article_title": "Complete natural-language title (The Ultimate Guide to...)",
+  "slug_suggestion": "url-slug",
+  "target_entity": "",
+  "primary_attribute": "",
+  "node_type": "Quality|Trust",
+  "section": "Core",
+  "content_level": "Pillar",
+  "content_cluster": "cluster group name for this pillar",
+  "parent_pillar_id": null,
+  "parent_cluster_id": null,
+  "funnel_stage": "ToFU|MoFU",
+  "content_type": "Guide",
+  "keyword_targets": ["primary keyword", "secondary keyword", "LSI keyword"],
+  "macro_context": "Single-sentence purpose of this pillar page",
+  "search_intent_type": "Informational|Commercial",
+  "semantic_distance_score": 0,
+  "priority_sequence": 1,
+  "estimated_word_count": "3000-5000",
+  "featured_snippet_target": true,
+  "schema_type": "Article|FAQPage|HowTo",
+  "status": "planned",
+  "published_url": "",
+  "cannibalization_risk": false,
+  "cannibalization_conflict": "",
+  "bridge_to_core": null,
+  "trust_signal_type": null
+}]`,
+
+  /**
+   * Phase 2: Generate CLUSTER pages under each pillar (5-8 per pillar).
+   * These are focused sub-topic articles that link back to their pillar.
+   */
+  clusterPages: (centralEntity: string, pillarsSummary: string, eavJson: string, monetization: string) => `
+Build CLUSTER PAGES for each pillar in this SearchAtlas-style topical map.
+Central Entity: ${centralEntity}
+Monetization: ${monetization}
+Pillar Pages (with node_ids): ${pillarsSummary}
+EAV Architecture: ${eavJson}
+
+CLUSTER PAGE RULES:
+- Generate 5-8 cluster pages PER PILLAR (total 30-60 cluster pages across all pillars)
+- Each cluster page covers a specific sub-attribute or sub-topic of its parent pillar
+- cluster pages MUST reference their parent pillar's node_id in parent_pillar_id
+- content_level: "Cluster"
+- Word count: 1200-2500
+- Variety: mix of Informational, Commercial, and some Transactional
+- Mix node types: Quality, Bridge, Trust, Historical, Trending
+- content_cluster: same cluster group name as the parent pillar
+- DO NOT repeat article titles or macro contexts
+
+Return ONLY a JSON array — include ALL cluster pages for ALL pillars in one array:
+[{
+  "node_id": "generate-unique-uuid",
+  "article_title": "",
+  "slug_suggestion": "",
+  "target_entity": "",
+  "primary_attribute": "",
+  "node_type": "Quality|Bridge|Trust|Historical|Trending",
+  "section": "Core|Outer",
+  "content_level": "Cluster",
+  "content_cluster": "must match parent pillar cluster name",
+  "parent_pillar_id": "uuid of parent pillar page",
+  "parent_cluster_id": null,
+  "funnel_stage": "ToFU|MoFU|BoFU",
+  "content_type": "Guide|Tutorial|Comparison|Review|Definition|FAQ|Case Study|Checklist|Listicle",
+  "keyword_targets": ["primary keyword", "secondary keyword"],
+  "macro_context": "One sentence purpose",
+  "search_intent_type": "Informational|Commercial|Transactional|Navigational",
+  "semantic_distance_score": 0,
+  "priority_sequence": 1,
+  "estimated_word_count": "1200-2500",
+  "featured_snippet_target": true,
+  "schema_type": "Article|FAQPage|HowTo|Product",
+  "status": "planned",
+  "published_url": "",
+  "cannibalization_risk": false,
+  "cannibalization_conflict": "",
+  "bridge_to_core": null,
+  "trust_signal_type": "E-E-A-T|breadth|freshness|comparison|definition"
+}]`,
+
+  /**
+   * Phase 3: Generate SUPPORTING pages (3-5 per content cluster).
+   * These are narrow, specific pages (definitions, FAQs, comparison pages).
+   */
+  supportingPages: (centralEntity: string, clustersSummary: string, topicalBorders: string[]) => `
+Build SUPPORTING PAGES for each cluster in this topical map.
+Central Entity: ${centralEntity}
+Topical Borders (NEVER cover): ${topicalBorders.join(", ")}
+Cluster Pages (with node_ids): ${clustersSummary}
+
+SUPPORTING PAGE RULES:
+- Generate 2-4 supporting pages PER CLUSTER (focus on the most important clusters only)
+- Supporting pages are narrow, highly specific: definitions, FAQs, tools, comparisons, stats pages
+- content_level: "Supporting"
+- Word count: 600-1200 (concise, featured snippet optimized)
+- parent_cluster_id = the cluster page's node_id they support
+- parent_pillar_id = same pillar as their parent cluster
+- These are mostly ToFU (awareness) or BoFU (decision)
+- content_type: "Definition|FAQ|Checklist|Tool Page|Comparison|Review"
+- section: usually "Outer" (supporting content sits in outer ring)
+- trust_signal_type: "breadth|definition|E-E-A-T|comparison"
+
+Return ONLY a JSON array of ALL supporting pages:
+[{
+  "node_id": "generate-unique-uuid",
+  "article_title": "",
+  "slug_suggestion": "",
+  "target_entity": "",
+  "primary_attribute": "",
+  "node_type": "Bridge|Trust|Historical",
+  "section": "Outer",
+  "content_level": "Supporting",
+  "content_cluster": "must match parent cluster cluster name",
+  "parent_pillar_id": "uuid of grandparent pillar",
+  "parent_cluster_id": "uuid of parent cluster page",
+  "funnel_stage": "ToFU|BoFU",
+  "content_type": "Definition|FAQ|Checklist|Tool Page|Comparison|Review",
+  "keyword_targets": ["primary keyword"],
+  "macro_context": "One sentence, very specific",
+  "search_intent_type": "Informational|Navigational",
+  "semantic_distance_score": 0,
+  "priority_sequence": 1,
+  "estimated_word_count": "600-1200",
+  "featured_snippet_target": true,
+  "schema_type": "FAQPage|Article|HowTo",
+  "status": "planned",
+  "published_url": "",
+  "cannibalization_risk": false,
+  "cannibalization_conflict": "",
+  "bridge_to_core": "parent cluster article title",
+  "trust_signal_type": "breadth|definition|E-E-A-T|comparison"
+}]`,
+
   sitemapGenerator: (topicalMap: string) => `
 Generate XML sitemap configuration from topical map.
 Topical Map: ${topicalMap}

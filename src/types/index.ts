@@ -7,6 +7,23 @@ export type Priority = "P1" | "P2" | "SKIP";
 export type NodeStatus = "planned" | "in-progress" | "published" | "needs-update";
 export type LinkIntentStage = "Informational" | "Commercial" | "Transactional";
 
+// Enhanced Topical Map types (SearchAtlas-style)
+export type ContentLevel = "Pillar" | "Cluster" | "Supporting";
+export type FunnelStage = "ToFU" | "MoFU" | "BoFU";
+export type ContentType =
+  | "Guide"
+  | "Tutorial"
+  | "Comparison"
+  | "Review"
+  | "Definition"
+  | "FAQ"
+  | "Case Study"
+  | "Checklist"
+  | "Listicle"
+  | "News"
+  | "Interview"
+  | "Tool Page";
+
 export interface AudienceSegment {
   name: string;
   description: string;
@@ -45,6 +62,15 @@ export interface TopicalMapNode {
   primary_attribute: string;
   node_type: NodeType;
   section: SectionType;
+  // SearchAtlas-style hierarchy
+  content_level: ContentLevel;
+  content_cluster: string;          // topic cluster group name
+  parent_pillar_id?: string;        // UUID of parent pillar page
+  parent_cluster_id?: string;       // UUID of parent cluster (for supporting pages)
+  funnel_stage: FunnelStage;
+  content_type: ContentType;
+  keyword_targets: string[];        // primary + secondary keywords
+  // Core fields
   macro_context: string;
   search_intent_type: IntentType;
   semantic_distance_score: number;

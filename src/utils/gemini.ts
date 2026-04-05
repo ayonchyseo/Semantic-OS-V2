@@ -1,21 +1,14 @@
+/**
+ * gemini.ts — Legacy compatibility shim.
+ * All modules now call `callAI()` from apiProvider, but existing pages
+ * that import `callGemini` / `callGeminiStream` still work via this shim.
+ */
+export { callAI as callGemini, testConnection as testApiKey } from "./apiProvider";
+export type { CallOptions as GeminiOptions } from "./apiProvider";
+
+// callGeminiStream is kept for ContentBrief streaming — falls back to OpenAI/Claude streaming stub
+import { getConfig } from "./apiProvider";
 import { GoogleGenAI } from "@google/genai";
-
-// Gets API key - works in AI Studio AND Vercel
-function getApiKey(): string {
-  const key =
-    (import.meta.env?.VITE_GEMINI_API_KEY) ||
-    (typeof process !== 'undefined' && process.env?.GEMINI_API_KEY) ||
-    "";
-
-  if (!key) {
-    throw new Error(
-      "GEMINI_API_KEY is not set. " +
-      "In Vercel: add VITE_GEMINI_API_KEY in Settings → Environment Variables, then redeploy. " +
-      "In AI Studio: check your Secrets panel."
-    );
-  }
-  return key;
-}
 
 const MASTER_SYSTEM_INSTRUCTION = `You are SemanticOS — an advanced Semantic SEO AI built on the Koray Tugberk GUBUR (Koraynese) framework.
 
@@ -33,164 +26,32 @@ YOUR CORE LAWS:
 
 CRITICAL: Always return valid JSON only. No preamble. No explanation. No markdown fences.`;
 
-/**
- * Robustly extracts a JSON object or array from a string.
- * Handles: clean JSON, ```json ... ``` fences, ``` ... ``` fences,
- * and JSON embedded inside conversational text.
- */
-function extractJSON(text: string): any {
-  if (!text || text.trim() === "") {
-    throw new Error("Model returned an empty response.");
-  }
-
-  // 1. Try direct parse first (cleanest path)
-  try {
-    return JSON.parse(text.trim());
-  } catch (_) {}
-
-  // 2. Try extracting from ```json ... ``` fences
-  const fencedJson = text.match(/```json\s*([\s\S]*?)\s*```/);
-  if (fencedJson) {
-    try {
-      return JSON.parse(fencedJson[1].trim());
-    } catch (_) {}
-  }
-
-  // 3. Try extracting from ``` ... ``` fences (no language tag)
-  const fenced = text.match(/```\s*([\s\S]*?)\s*```/);
-  if (fenced) {
-    try {
-      return JSON.parse(fenced[1].trim());
-    } catch (_) {}
-  }
-
-  // 4. Try extracting the largest { } or [ ] block in the text
-  const objMatch = text.match(/\{[\s\S]*\}/);
-  const arrMatch = text.match(/\[[\s\S]*\]/);
-
-  if (objMatch) {
-    try {
-      return JSON.parse(objMatch[0]);
-    } catch (_) {}
-  }
-
-  if (arrMatch) {
-    try {
-      return JSON.parse(arrMatch[0]);
-    } catch (_) {}
-  }
-
-  // 5. All strategies failed — throw with the raw text for debugging
-  console.error("[SemanticOS] Could not extract JSON from model response:", text.slice(0, 500));
-  throw new Error(`Model response was not valid JSON. Raw preview: "${text.slice(0, 200)}"`);
-}
-
-export interface GeminiOptions {
-  useGrounding?: boolean;
-  temperature?: number;
-  maxTokens?: number;
-  model?: string;
-}
-
-// gemini-2.5-flash: the only model confirmed accessible for this API key/region.
-// gemini-2.0-flash = free tier quota 0. gemini-1.5-flash = not found in v1beta.
-// The robust extractJSON() below handles gemini-2.5-flash's inconsistent formatting.
-const DEFAULT_MODEL = "gemini-2.5-flash";
-
-export async function callGemini(prompt: string, options: GeminiOptions = {}): Promise<any> {
-  const ai = new GoogleGenAI({ apiKey: getApiKey() });
-
-  const config: Record<string, any> = {
-    temperature: options.temperature ?? 0.7,
-    maxOutputTokens: options.maxTokens ?? 8192,
-    systemInstruction: MASTER_SYSTEM_INSTRUCTION,
-  };
-
-  // Cannot use responseMimeType with grounding
-  if (options.useGrounding) {
-    config.tools = [{ googleSearch: {} }];
-  } else {
-    // REMOVED responseMimeType: "application/json" to FIX TRUNCATION BUG.
-    // The gemini-2.5-flash model often truncates outputs unexpectedly when forced 
-    // into JSON mode without a strict schema. Since we have a robust extractJSON() 
-    // function, standard text generation (which wraps in ```json) is much safer and won't truncate.
-  }
-
-  const model = options.model ?? DEFAULT_MODEL;
-
-  let response;
-  let attempt = 1;
-  while (true) {
-    try {
-      response = await ai.models.generateContent({
-        model,
-        contents: prompt,
-        config,
-      });
-      break; // Success
-    } catch (error: any) {
-      const msg = error.message ?? "";
-      // If we hit the strict 5 RPM free tier limit, transparently wait and retry
-      if ((msg.includes("RESOURCE_EXHAUSTED") || msg.includes("429") || msg.includes("quota")) && attempt <= 2) {
-        // Extract wait time from Google's exact error message: "Please retry in 31.0413s."
-        const match = msg.match(/retry in (\d+(\.\d+)?)s/);
-        // Default to a safe 35 seconds if regex fails, +2s buffer.
-        const waitTimeMs = match ? Math.ceil(parseFloat(match[1]) * 1000) + 2000 : 35000;
-        
-        console.warn(`[SemanticOS] Gemini rate limit hit (5 RPM). Auto-waiting ${waitTimeMs / 1000} seconds before retrying (Attempt ${attempt}/2)...`);
-        await new Promise(resolve => setTimeout(resolve, waitTimeMs));
-        attempt++;
-      } else {
-        throw error; // Not a rate limit or we ran out of retries
-      }
-    }
-  }
-
-  const text = response.text ?? "";
-  return extractJSON(text);
-}
-
-// For streaming responses (content writing mode)
 export async function callGeminiStream(
   prompt: string,
   onChunk: (text: string) => void,
   options: { temperature?: number } = {}
 ): Promise<void> {
-  const ai = new GoogleGenAI({ apiKey: getApiKey() });
+  const cfg = getConfig();
 
-  const stream = await ai.models.generateContentStream({
-    model: DEFAULT_MODEL,
-    contents: prompt,
-    config: {
-      temperature: options.temperature ?? 0.7,
-      systemInstruction: MASTER_SYSTEM_INSTRUCTION,
-    },
-  });
-
-  for await (const chunk of stream) {
-    if (chunk.text) onChunk(chunk.text);
-  }
-}
-
-// Test if the API key works - use this on app load
-export async function testApiKey(): Promise<{ valid: boolean; error?: string }> {
-  try {
-    const ai = new GoogleGenAI({ apiKey: getApiKey() });
-    await ai.models.generateContent({
-      model: DEFAULT_MODEL,
-      contents: "Reply with the word OK only.",
-      config: { maxOutputTokens: 10 },
+  if (cfg.provider === "gemini" && cfg.geminiKey) {
+    // Native Gemini streaming
+    const ai = new GoogleGenAI({ apiKey: cfg.geminiKey });
+    const stream = await ai.models.generateContentStream({
+      model: cfg.geminiModel,
+      contents: prompt,
+      config: {
+        temperature: options.temperature ?? 0.7,
+        systemInstruction: MASTER_SYSTEM_INSTRUCTION,
+      },
     });
-    return { valid: true };
-  } catch (error: any) {
-    const msg = error.message ?? "";
-    // Don't report model-level errors as "API key not working"
-    if (msg.includes("not found") || msg.includes("NOT_FOUND") || msg.includes("RESOURCE_EXHAUSTED")) {
-      // Key is valid but model has issues — treat as valid so app doesn't block usage
-      console.warn("[SemanticOS] testApiKey model warning:", msg);
-      return { valid: true };
+    for await (const chunk of stream) {
+      if (chunk.text) onChunk(chunk.text);
     }
-    return { valid: false, error: msg };
+    return;
   }
-}
 
+  // For OpenAI / Claude: use non-streaming callAI and deliver as single chunk
+  const { callAI } = await import("./apiProvider");
+  const result = await callAI(prompt, { temperature: options.temperature });
+  onChunk(typeof result === "string" ? result : JSON.stringify(result, null, 2));
+}
