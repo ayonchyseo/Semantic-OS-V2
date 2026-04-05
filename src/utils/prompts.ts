@@ -20,34 +20,33 @@ Return ONLY this JSON:
 }`,
 
   eavArchitecture: (centralEntity: string, sourceContext: string, intent: string, monetization: string) => `
-Build complete EAV (Entity-Attribute-Value) Architecture for Semantic SEO.
+Build EAV (Entity-Attribute-Value) Architecture for Semantic SEO.
 Central Entity: ${centralEntity}
 Source Context: ${sourceContext}
 Central Search Intent: ${intent}
 Monetization: ${monetization}
 
 Rules:
-- 8-12 primary entities orbiting the central entity
-- Each entity: 5-8 attributes
-- Each attribute: 3-5 specific corroborable values
+- 8-10 primary entities orbiting the central entity (keep it focused)
+- Each entity: 4-6 attributes (no more)
+- Each attribute: exactly 3 specific corroborable values (no more)
 - P1 = Core Section, P2 = Outer Section, SKIP = outside topical borders
 - semantic_distance: 0-30 Core, 31-60 Bridge, 61-80 Outer, 81-100 Border risk
+- Keep values SHORT (2-5 words each), spo_triple under 15 words
 
-Return ONLY this JSON:
-{
-  "eav_architecture": [{
-    "entity": "",
-    "entity_type": "Product|Process|Person|Place|Concept|Event|Tool|Metric",
-    "semantic_distance": 0,
-    "attributes": [{
-      "attribute": "",
-      "priority": "P1|P2|SKIP",
-      "values": ["specific value 1", "value 2", "value 3"],
-      "spo_triple": "Subject predicate object sentence",
-      "section_target": "Core|Outer|Skip"
-    }]
+Return ONLY a JSON array (NOT wrapped in an object):
+[{
+  "entity": "",
+  "entity_type": "Product|Process|Person|Place|Concept|Event|Tool|Metric",
+  "semantic_distance": 0,
+  "attributes": [{
+    "attribute": "",
+    "priority": "P1|P2|SKIP",
+    "values": ["value 1", "value 2", "value 3"],
+    "spo_triple": "Subject predicate object",
+    "section_target": "Core|Outer|Skip"
   }]
-}`,
+}]`,
 
   coreSection: (centralEntity: string, sourceContext: string, intent: string, eavJson: string, monetization: string) => `
 Build the CORE SECTION of a Topical Map using Koray Tugberk's framework.
