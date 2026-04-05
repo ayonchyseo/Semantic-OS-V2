@@ -321,8 +321,13 @@ export async function testConnection(
     return { valid: true };
   } catch (error: any) {
     const msg = error.message ?? "";
-    if (msg.includes("not found") || msg.includes("NOT_FOUND") || msg.includes("RESOURCE_EXHAUSTED")) {
+    // NOT_FOUND = model name issue, key itself is still valid
+    if (msg.includes("not found") || msg.includes("NOT_FOUND")) {
       return { valid: true };
+    }
+    // RESOURCE_EXHAUSTED = quota exceeded — key is valid but tier is maxed out
+    if (msg.includes("RESOURCE_EXHAUSTED") || msg.includes("429") || msg.includes("quota")) {
+      return { valid: false, error: "Quota exceeded / rate limit hit. Upgrade your plan or switch to another provider." };
     }
     return { valid: false, error: msg };
   }
