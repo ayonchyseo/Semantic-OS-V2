@@ -697,30 +697,34 @@ export default function TopicalMapPage({ projectHook, onComplete }: any) {
     try {
       const sc = activeProject.source_context_data;
       const eavJson = JSON.stringify(activeProject.eav_architecture);
+      const AI_OPTS = { maxTokens: 16000 };
 
-      // Phase 1: Pillar pages
+      // Phase 1: Pillar pages (5-7 pages — small, fast)
       setStatusText("Phase 1/3 — Generating Pillar Pages...");
       const pillars: TopicalMapNode[] = await callAI(
-        PROMPTS.pillarPages(sc.central_entity, sc.source_context, sc.central_search_intent, eavJson, activeProject.monetization_type)
+        PROMPTS.pillarPages(sc.central_entity, sc.source_context, sc.central_search_intent, eavJson, activeProject.monetization_type),
+        AI_OPTS
       );
 
-      // Phase 2: Cluster pages
-      setStatusText("Phase 2/3 — Generating Cluster Pages (this may take ~30s)...");
+      // Phase 2: Cluster pages (3-4 per pillar — mid-size batch)
+      setStatusText("Phase 2/3 — Generating Cluster Pages (~30s)...");
       const pillarsSummary = JSON.stringify(
         pillars.map(p => ({ node_id: p.node_id, title: p.article_title, content_cluster: p.content_cluster, attribute: p.primary_attribute }))
       );
       const clusters: TopicalMapNode[] = await callAI(
-        PROMPTS.clusterPages(sc.central_entity, pillarsSummary, eavJson, activeProject.monetization_type)
+        PROMPTS.clusterPages(sc.central_entity, pillarsSummary, eavJson, activeProject.monetization_type),
+        AI_OPTS
       );
 
-      // Phase 3: Supporting pages
+      // Phase 3: Supporting pages — only top 8 clusters to keep output small
       setStatusText("Phase 3/3 — Generating Supporting Pages...");
-      const topClusters = clusters.slice(0, 12); // limit to avoid huge prompts
+      const topClusters = clusters.slice(0, 8);
       const clustersSummary = JSON.stringify(
         topClusters.map(c => ({ node_id: c.node_id, title: c.article_title, content_cluster: c.content_cluster, parent_pillar_id: c.parent_pillar_id }))
       );
       const supporting: TopicalMapNode[] = await callAI(
-        PROMPTS.supportingPages(sc.central_entity, clustersSummary, sc.topical_borders || [])
+        PROMPTS.supportingPages(sc.central_entity, clustersSummary, sc.topical_borders || []),
+        AI_OPTS
       );
 
       const fullMap = [...pillars, ...clusters, ...supporting];
@@ -751,7 +755,8 @@ export default function TopicalMapPage({ projectHook, onComplete }: any) {
 
       setStatusText("Regenerating Outer Section...");
       const outerResult: TopicalMapNode[] = await callAI(
-        PROMPTS.outerSection(sc.central_entity, sc.topical_borders || [], coreSummary, p2Attrs)
+        PROMPTS.outerSection(sc.central_entity, sc.topical_borders || [], coreSummary, p2Attrs),
+        { maxTokens: 16000 }
       );
       const updated = [...existingCore, ...outerResult];
       updateProject(activeProject.project_id, { topical_map: updated });
